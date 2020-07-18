@@ -44,7 +44,7 @@
     "type": "git",
     "url": "http://github.com/couchbase/couchnode.git"
   },
-  "version": "3.0.1-mfl",
+  "version": "3.0.4-mfl",
   "config": {
     "native": false
   },
