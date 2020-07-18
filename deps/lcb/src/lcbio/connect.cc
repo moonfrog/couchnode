@@ -141,7 +141,7 @@ void Connstart::handler()
 
     if (state == CS_CANCELLED) {
         /* ignore everything. Clean up resources */
-        if (sock->io->is_C() && sock->u.sd) {
+        if (sock != NULL && sock->io->is_C() && sock->u.sd) {
             sock->u.sd->lcbconn = NULL; /* we don't need IO backend to invoke any callbacks now */
             lcb_assert(sock->refcount > 1);
             sock->refcount--; /* dereference because of unsuccessful attempt */
@@ -600,7 +600,7 @@ const char *lcbio_svcstr(lcbio_SERVICE service)
             return "n1ql";
         case LCBIO_SERVICE_FTS:
             return "fts";
-        case LCBIO_SERVICE_CBAS:
+        case LCBIO_SERVICE_ANALYTICS:
             return "cbas";
         case LCBIO_SERVICE_UNSPEC:
             /* fallthrough */

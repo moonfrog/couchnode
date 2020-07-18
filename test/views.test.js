@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const testdata = require('./testdata');
 
 const H = require('./harness');
@@ -42,6 +42,7 @@ describe('#views', () => {
     });
 
     it('should see test data correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
 
@@ -49,7 +50,7 @@ describe('#views', () => {
         // view won't be available to the query engine yet...
         try {
           res = await H.b.viewQuery(ddocKey, 'simple');
-        } catch (err) {}
+        } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -59,6 +60,12 @@ describe('#views', () => {
         assert.isArray(res.rows);
         assert.lengthOf(res.rows, testdata.docCount());
         assert.isObject(res.meta);
+
+        res.rows.forEach((row) => {
+          assert.isDefined(row.id);
+          assert.isDefined(row.key);
+          assert.isDefined(row.value);
+        });
 
         break;
       }
