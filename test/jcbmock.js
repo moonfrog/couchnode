@@ -9,8 +9,10 @@ var child_process = require('child_process');
 
 var defaultMockVersion = [1, 5, 25];
 var defaultMockVersionStr =
-  defaultMockVersion[0] + '.' +
-  defaultMockVersion[1] + '.' +
+  defaultMockVersion[0] +
+  '.' +
+  defaultMockVersion[1] +
+  '.' +
   defaultMockVersion[2];
 var defaultMockFile = 'CouchbaseMock-' + defaultMockVersionStr + '.jar';
 var defaultMockUrlBase = 'http://packages.couchbase.com/clients/c/mock/';
@@ -33,32 +35,34 @@ function _getMockJar(callback) {
   }
 
   // Check if the file already exists
-  fs.stat(mockpath, function(err, stats) {
+  fs.stat(mockpath, function (err, stats) {
     if (!err && stats.isFile() && stats.size > 0) {
       callback(null, mockpath);
       return;
     }
 
     // Remove whatever was there
-    fs.unlink(mockpath, function() {
+    fs.unlink(mockpath, function () {
       // we ignore any errors here...
 
       console.log('downloading ' + mockurl + ' to ' + mockpath);
 
       var file = fs.createWriteStream(mockpath);
-      var request = http.get(mockurl, function(res) {
+      http.get(mockurl, function (res) {
         if (res.statusCode !== 200) {
           callback(new Error('failed to get mock from server'));
           return;
         }
 
-        res.on('data', function(data) {
-          file.write(data);
-        }).on('end', function() {
-          file.end(function() {
-            callback(null, mockpath);
+        res
+          .on('data', function (data) {
+            file.write(data);
+          })
+          .on('end', function () {
+            file.end(function () {
+              callback(null, mockpath);
+            });
           });
-        });
       });
     });
   });
@@ -102,28 +106,28 @@ function _startMock(mockpath, options, callback) {
   }
   if (!options.buckets) {
     options.buckets = {
-      'default': {
+      default: {
         password: '',
-        type: 'couchbase'
-      }
+        type: 'couchbase',
+      },
     };
   }
   for (var bname in options.buckets) {
-    if (options.buckets.hasOwnProperty(bname)) {
+    if (Object.prototype.hasOwnProperty.call(options.buckets, bname)) {
       if (!options.buckets[bname].type) {
         options.buckets[bname] = 'couchbase';
       }
     }
   }
 
-  var server = net.createServer(function(socket) {
+  var server = net.createServer(function (socket) {
     // Close the socket immediately
     server.close();
 
     var readBuf = null;
     var mockPort = -1;
     var msgHandlers = [];
-    socket.on('data', function(data) {
+    socket.on('data', function (data) {
       if (readBuf) {
         readBuf = Buffer.concat([readBuf, data]);
       } else {
@@ -170,76 +174,87 @@ function _startMock(mockpath, options, callback) {
         break;
       }
     });
-    socket.on('error', function(err) {
-      // console.log('mocksock err', err);
+    socket.on('error', function (err) {
+      console.error('mocksock err', err);
     });
-    socket.command = function(cmdName, payload, callback) {
+    socket.command = function (cmdName, payload, callback) {
       if (callback === undefined) {
         callback = payload;
         payload = undefined;
       }
 
       msgHandlers.push(callback);
-      var dataOut = JSON.stringify({
-        command: cmdName,
-        payload: payload
-      }) + '\n';
+      var dataOut =
+        JSON.stringify({
+          command: cmdName,
+          payload: payload,
+        }) + '\n';
       socket.write(dataOut);
     };
-    socket.close = function() {
+    socket.close = function () {
       socket.end();
     };
     console.log('got mock server connection');
   });
-  server.on('error', function(err) {
+  server.on('error', function (err) {
     callback(err);
   });
-  server.on('listening', function() {
+  server.on('listening', function () {
     var ctlPort = server.address().port;
 
     var bucketInfo = '';
     for (var bname in options.buckets) {
-      if (options.buckets.hasOwnProperty(bname)) {
+      if (Object.prototype.hasOwnProperty.call(options.buckets, bname)) {
         var binfo = options.buckets[bname];
         if (bucketInfo !== '') {
           bucketInfo += ',';
         }
-        bucketInfo += bname +
-          ':' + (binfo.password ? binfo.password : '') +
-          ':' + (binfo.type ? binfo.type : '');
+        bucketInfo +=
+          bname +
+          ':' +
+          (binfo.password ? binfo.password : '') +
+          ':' +
+          (binfo.type ? binfo.type : '');
       }
     }
 
     var javaOpts = [
-      '-jar', mockpath,
+      '-jar',
+      mockpath,
       '--cccp',
-      '--harakiri-monitor', 'localhost:' + ctlPort,
-      '--port', '0',
-      '--replicas', options.replicas.toString(),
-      '--vbuckets', options.vbuckets.toString(),
-      '--nodes', options.nodes.toString(),
-      '--buckets', bucketInfo
+      '--harakiri-monitor',
+      'localhost:' + ctlPort,
+      '--port',
+      '0',
+      '--replicas',
+      options.replicas.toString(),
+      '--vbuckets',
+      options.vbuckets.toString(),
+      '--nodes',
+      options.nodes.toString(),
+      '--buckets',
+      bucketInfo,
     ];
     console.log('launching mock:', javaOpts);
 
     // Start Java Mock Here...
     var mockproc = child_process.spawn('java', javaOpts);
-    mockproc.on('error', function(err) {
+    mockproc.on('error', function (err) {
       server.close();
       callback(err);
       return;
     });
-    mockproc.stderr.on('data', function(data) {
-      //console.log('mockproc err: ' + data.toString());
+    mockproc.stderr.on('data', function (data) {
+      console.error('mockproc err: ' + data.toString());
     });
-    mockproc.on('close', function(code) {
+    mockproc.on('close', function (code) {
       if (code !== 0 && code !== 1) {
         console.log('mock closed with non-zero exit code: ' + code);
       }
       server.close();
     });
 
-    mockproc.stdout.on('data', function(data) {
+    mockproc.stdout.on('data', function (data) {
       console.log(data);
     });
   });
@@ -247,7 +262,7 @@ function _startMock(mockpath, options, callback) {
 }
 
 function _createMock(options, callback) {
-  _getMockJar(function(err, mockpath) {
+  _getMockJar(function (err, mockpath) {
     if (err) {
       callback(err);
       return;
