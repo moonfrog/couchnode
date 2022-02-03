@@ -263,7 +263,7 @@ void lcb::clconfig::cccp_update(const void *cookie_, lcb_STATUS err, const void 
 
 static void on_connected(lcbio_SOCKET *sock, void *data, lcb_STATUS err, lcbio_OSERR)
 {
-    lcbio_CTXPROCS ioprocs;
+    lcbio_CTXPROCS ioprocs{};
     CccpProvider *cccp = reinterpret_cast< CccpProvider * >(data);
     lcb_settings *settings = cccp->parent->settings;
     cccp->creq = NULL;
@@ -382,6 +382,13 @@ void CccpProvider::on_io_read()
     if (resp.status() != PROTOCOL_BINARY_RESPONSE_SUCCESS) {
         lcb_log(LOGARGS(this, WARN), LOGFMT "CCCP Packet responded with 0x%x; nkey=%d, nbytes=%lu, cmd=0x%x, seq=0x%x",
                 LOGID(this), resp.status(), resp.keylen(), (unsigned long)resp.bodylen(), resp.opcode(), resp.opaque());
+
+        if (settings().bucket == nullptr) {
+            switch (resp.status()) {
+                case PROTOCOL_BINARY_RESPONSE_NO_BUCKET:
+                    return_error(LCB_ERR_UNSUPPORTED_OPERATION);
+            }
+        }
 
         switch (resp.status()) {
             case PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED:

@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const testdata = require('./testdata');
 
 const H = require('./harness');
@@ -26,7 +26,7 @@ describe('#analytics', () => {
 
     it('should successfully upsert a dataverse', async () => {
       await H.c.analyticsIndexes().createDataverse(dvName, {
-        ignoreIfExists: true
+        ignoreIfExists: true,
       });
     });
 
@@ -38,43 +38,58 @@ describe('#analytics', () => {
 
     it('should successfully create a dataset', async () => {
       await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
-        dataverseName: dvName
+        dataverseName: dvName,
       });
     });
 
     it('should successfully upsert a dataset', async () => {
       await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
         dataverseName: dvName,
-        ignoreIfExists: true
+        ignoreIfExists: true,
       });
     });
 
     it('should fail to overwrite an existing dataset', async () => {
       await H.throwsHelper(async () => {
         await H.c.analyticsIndexes().createDataset(H.b.name, dsName, {
-          dataverseName: dvName
+          dataverseName: dvName,
         });
       }, H.lib.DatasetExistsError);
     });
 
     it('should successfully create an index', async () => {
-      await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
-        dataverseName: dvName
-      });
+      await H.c.analyticsIndexes().createIndex(
+        dsName,
+        idxName,
+        { name: 'string' },
+        {
+          dataverseName: dvName,
+        }
+      );
     });
 
     it('should successfully upsert an index', async () => {
-      await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
-        dataverseName: dvName,
-        ignoreIfExists: true
-      });
+      await H.c.analyticsIndexes().createIndex(
+        dsName,
+        idxName,
+        { name: 'string' },
+        {
+          dataverseName: dvName,
+          ignoreIfExists: true,
+        }
+      );
     });
 
     it('should fail to overwrite an existing index', async () => {
       await H.throwsHelper(async () => {
-        await H.c.analyticsIndexes().createIndex(dsName, idxName, { name: 'string' }, {
-          dataverseName: dvName
-        });
+        await H.c.analyticsIndexes().createIndex(
+          dsName,
+          idxName,
+          { name: 'string' },
+          {
+            dataverseName: dvName,
+          }
+        );
       }, H.lib.IndexExistsError);
     });
 
@@ -93,12 +108,15 @@ describe('#analytics', () => {
       assert.isAtLeast(res.length, 1);
     });
 
-    it('should successfully get pending mutations', async () => {
-      var numPending = await H.c.analyticsIndexes().getPendingMutations();
-      assert.isObject(numPending);
+    H.requireFeature(H.Features.AnalyticsPendingMutations, () => {
+      it('should successfully get pending mutations', async () => {
+        var numPending = await H.c.analyticsIndexes().getPendingMutations();
+        assert.isObject(numPending);
+      });
     });
 
     it('should see test data correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
 
@@ -106,8 +124,9 @@ describe('#analytics', () => {
         // view won't be available to the query engine yet...
         try {
           var targetName = '`' + dvName + '`.`' + dsName + '`';
-          res = await H.c.analyticsQuery(`SELECT * FROM ${targetName} WHERE testUid='${testUid}'`);
-        } catch (err) {}
+          var qs = `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`;
+          res = await H.c.analyticsQuery(qs);
+        } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -122,16 +141,72 @@ describe('#analytics', () => {
       }
     }).timeout(20000);
 
-    it('should work with lots of options specified', async () => {
+    it('should work with parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
           var targetName = '`' + dvName + '`.`' + dsName + '`';
-          res = await H.c.analyticsQuery(`SELECT * FROM ${targetName} WHERE testUid='${testUid}'`, {
-            clientContextId: 'hello-world',
-            readOnly: true,
+          var qs = `SELECT * FROM ${targetName} WHERE testUid=$1`;
+          res = await H.c.analyticsQuery(qs, {
+            parameters: [testUid],
           });
-        } catch (err) {}
+        } catch (e) {} // eslint-disable-line no-empty
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
+
+    it('should work with named parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
+      while (true) {
+        var res = null;
+        try {
+          var targetName = '`' + dvName + '`.`' + dsName + '`';
+          var qs = `SELECT * FROM ${targetName} WHERE testUid=$tuid`;
+          res = await H.c.analyticsQuery(qs, {
+            parameters: {
+              tuid: testUid,
+            },
+          });
+        } catch (e) {} // eslint-disable-line no-empty
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
+
+    it('should work with lots of options specified', async () => {
+      /* eslint-disable-next-line no-constant-condition */
+      while (true) {
+        var res = null;
+        try {
+          var targetName = '`' + dvName + '`.`' + dsName + '`';
+          res = await H.c.analyticsQuery(
+            `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`,
+            {
+              clientContextId: 'hello-world',
+              readOnly: true,
+            }
+          );
+        } catch (err) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -165,7 +240,7 @@ describe('#analytics', () => {
     it('should successfully ignore a missing index when dropping', async () => {
       await H.c.analyticsIndexes().dropIndex(dsName, idxName, {
         dataverseName: dvName,
-        ignoreIfNotExists: true
+        ignoreIfNotExists: true,
       });
     });
 
@@ -186,7 +261,7 @@ describe('#analytics', () => {
     it('should successfully ignore a missing dataset when dropping', async () => {
       await H.c.analyticsIndexes().dropDataset(dsName, {
         dataverseName: dvName,
-        ignoreIfNotExists: true
+        ignoreIfNotExists: true,
       });
     });
 
@@ -204,7 +279,7 @@ describe('#analytics', () => {
 
     it('should successfully ignore a missing dataverse when dropping', async () => {
       await H.c.analyticsIndexes().dropDataverse(dvName, {
-        ignoreIfNotExists: true
+        ignoreIfNotExists: true,
       });
     });
 
@@ -213,6 +288,5 @@ describe('#analytics', () => {
         await H.c.analyticsIndexes().dropDataverse(dvName);
       }, H.lib.DataverseNotFoundError);
     });
-
   });
 });

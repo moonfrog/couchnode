@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const H = require('./harness');
 
 function genericTests(collFn) {
@@ -44,11 +44,26 @@ function genericTests(collFn) {
         assert.deepStrictEqual(res.value, testObjVal);
       });
 
+      it('should perform basic gets with callback', (callback) => {
+        collFn().get(testKeyA, (err, res) => {
+          assert.isObject(res);
+          assert.isNotEmpty(res.cas);
+          assert.deepStrictEqual(res.value, testObjVal);
+          callback(err);
+        });
+      });
+
+      it('should perform errored gets with callback', (callback) => {
+        collFn().get('invalid-key', (err, res) => {
+          res;
+          assert.isOk(err);
+          callback(null);
+        });
+      });
+
       it('should perform projected gets', async () => {
         var res = await collFn().get(testKeyA, {
-          project: [
-            'baz'
-          ]
+          project: ['baz'],
         });
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
@@ -59,8 +74,22 @@ function genericTests(collFn) {
         it('should fall back to full get projection', async () => {
           var res = await collFn().get(testKeyA, {
             project: [
-              'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
-              'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r'
+              'c',
+              'd',
+              'e',
+              'f',
+              'g',
+              'h',
+              'i',
+              'j',
+              'k',
+              'l',
+              'm',
+              'n',
+              'o',
+              'p',
+              'q',
+              'r',
             ],
             withExpiry: true,
           });
@@ -134,14 +163,12 @@ function genericTests(collFn) {
 
     describe('#replace', () => {
       it('should replace data correctly', async () => {
-        var res = await collFn().replace(
-          testKeyA, { foo: 'baz' });
+        var res = await collFn().replace(testKeyA, { foo: 'baz' });
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
 
         var gres = await collFn().get(testKeyA);
-        assert.deepStrictEqual(gres
-          .value, { foo: 'baz' });
+        assert.deepStrictEqual(gres.value, { foo: 'baz' });
       });
     });
 
@@ -157,16 +184,14 @@ function genericTests(collFn) {
       const testKeyIns = H.genTestKey();
 
       it('should perform inserts correctly', async () => {
-        var res = await collFn().insert(
-          testKeyIns, { foo: 'bar' });
+        var res = await collFn().insert(testKeyIns, { foo: 'bar' });
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
       });
 
       it('should fail to insert a second time', async () => {
         await H.throwsHelper(async () => {
-          await collFn().insert(
-            testKeyIns, { foo: 'bar' });
+          await collFn().insert(testKeyIns, { foo: 'bar' });
         });
       });
 
@@ -174,97 +199,92 @@ function genericTests(collFn) {
         await collFn().remove(testKeyIns);
       });
 
-      it('should insert w/ expiry successfully',
-        async () => {
-          const testKeyExp = H.genTestKey();
+      it('should insert w/ expiry successfully', async () => {
+        const testKeyExp = H.genTestKey();
 
-          var res = await collFn().insert(
-            testKeyExp, { foo: 14 }, { expiry: 1 });
-          assert.isObject(res);
-          assert.isNotEmpty(res.cas);
+        var res = await collFn().insert(testKeyExp, { foo: 14 }, { expiry: 1 });
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
 
-          await H.sleep(2000);
+        await H.sleep(2000);
 
-          await H.throwsHelper(async () => {
-            await collFn().get(testKeyExp);
-          });
-        }).timeout(4000);
+        await H.throwsHelper(async () => {
+          await collFn().get(testKeyExp);
+        });
+      }).timeout(4000);
     });
 
     describe('#touch', () => {
-      it('should touch a document successfully',
-        async () => {
-          const testKeyTch = H.genTestKey();
+      it('should touch a document successfully', async () => {
+        const testKeyTch = H.genTestKey();
 
-          // Insert a test document
-          var res = await collFn().insert(
-            testKeyTch, { foo: 14 }, { expiry: 2 });
-          assert.isObject(res);
-          assert.isNotEmpty(res.cas);
+        // Insert a test document
+        var res = await collFn().insert(testKeyTch, { foo: 14 }, { expiry: 2 });
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
 
-          // Ensure the key is there
+        // Ensure the key is there
+        await collFn().get(testKeyTch);
+
+        // Touch the document
+        var tres = await collFn().touch(testKeyTch, 4);
+        assert.isObject(tres);
+        assert.isNotEmpty(tres.cas);
+
+        // Wait for the first expiry
+        await H.sleep(3000);
+
+        // Ensure the key is still there
+        await collFn().get(testKeyTch);
+
+        // Wait for it to expire
+        await H.sleep(2000);
+
+        // Ensure the key is gone
+        await H.throwsHelper(async () => {
           await collFn().get(testKeyTch);
-
-          // Touch the document
-          var res = await collFn().touch(testKeyTch, 4);
-          assert.isObject(res);
-          assert.isNotEmpty(res.cas);
-
-          // Wait for the first expiry
-          await H.sleep(3000);
-
-          // Ensure the key is still there
-          await collFn().get(testKeyTch);
-
-          // Wait for it to expire
-          await H.sleep(2000);
-
-          // Ensure the key is gone
-          await H.throwsHelper(async () => {
-            await collFn().get(testKeyTch);
-          });
-        }).timeout(6500);
+        });
+      }).timeout(6500);
     });
 
     describe('#getAndTouch', () => {
-      it('should touch a document successfully',
-        async () => {
-          const testKeyGat = H.genTestKey();
+      it('should touch a document successfully', async () => {
+        const testKeyGat = H.genTestKey();
 
-          // Insert a test document
-          var res = await collFn().insert(
-            testKeyGat, { foo: 14 }, { expiry: 2 });
-          assert.isObject(res);
-          assert.isNotEmpty(res.cas);
+        // Insert a test document
+        var res = await collFn().insert(testKeyGat, { foo: 14 }, { expiry: 2 });
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
 
-          // Ensure the key is there
+        // Ensure the key is there
+        await collFn().get(testKeyGat);
+
+        // Touch the document
+        var tres = await collFn().getAndTouch(testKeyGat, 4);
+        assert.isObject(tres);
+        assert.isNotEmpty(tres.cas);
+        assert.deepStrictEqual(tres.value, { foo: 14 });
+
+        // Wait for the first expiry
+        await H.sleep(3000);
+
+        // Ensure the key is still there
+        await collFn().get(testKeyGat);
+
+        // Wait for it to expire
+        await H.sleep(2000);
+
+        // Ensure the key is gone
+        await H.throwsHelper(async () => {
           await collFn().get(testKeyGat);
-
-          // Touch the document
-          var res = await collFn().getAndTouch(testKeyGat, 4);
-          assert.isObject(res);
-          assert.isNotEmpty(res.cas);
-          assert.deepStrictEqual(res.value, { foo: 14 });
-
-          // Wait for the first expiry
-          await H.sleep(3000);
-
-          // Ensure the key is still there
-          await collFn().get(testKeyGat);
-
-          // Wait for it to expire
-          await H.sleep(2000);
-
-          // Ensure the key is gone
-          await H.throwsHelper(async () => {
-            await collFn().get(testKeyGat);
-          });
-        }).timeout(6500);
+        });
+      }).timeout(6500);
     });
   });
 
   describe('#binary', () => {
     var testKeyBin = H.genTestKey();
+    var testKeyBinVal = H.genTestKey();
 
     before(async () => {
       await collFn().insert(testKeyBin, 14);
@@ -276,9 +296,9 @@ function genericTests(collFn) {
 
     describe('#increment', () => {
       it('should increment successfully', async () => {
-        var res = await collFn().binary().increment(
-          testKeyBin,
-          3);
+        var res = await collFn()
+          .binary()
+          .increment(testKeyBin, 3);
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
         assert.deepStrictEqual(res.value, 17);
@@ -290,9 +310,9 @@ function genericTests(collFn) {
 
     describe('#decrement', () => {
       it('should decrement successfully', async () => {
-        var res = await collFn().binary().decrement(
-          testKeyBin,
-          4);
+        var res = await collFn()
+          .binary()
+          .decrement(testKeyBin, 4);
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
         assert.deepStrictEqual(res.value, 13);
@@ -304,30 +324,46 @@ function genericTests(collFn) {
 
     describe('#append', () => {
       it('should append successfuly', async () => {
-        var res = await collFn().binary().append(testKeyBin,
-          'world');
+        var res = await collFn()
+          .binary()
+          .append(testKeyBin, 'world');
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
 
         var gres = await collFn().get(testKeyBin);
         assert.isTrue(Buffer.isBuffer(gres.value));
-        assert.deepStrictEqual(gres.value.toString(),
-          '13world');
+        assert.deepStrictEqual(gres.value.toString(), '13world');
       });
     });
 
     describe('#prepend', () => {
       it('should prepend successfuly', async () => {
-        var res = await collFn().binary().prepend(
-          testKeyBin,
-          'hello');
+        var res = await collFn()
+          .binary()
+          .prepend(testKeyBin, 'hello');
         assert.isObject(res);
         assert.isNotEmpty(res.cas);
 
         var gres = await collFn().get(testKeyBin);
         assert.isTrue(Buffer.isBuffer(gres.value));
-        assert.deepStrictEqual(gres.value.toString(),
-          'hello13world');
+        assert.deepStrictEqual(gres.value.toString(), 'hello13world');
+      });
+    });
+
+    describe('#upsert', () => {
+      it('should upsert successfully', async () => {
+        const valueBytes = Buffer.from(
+          '092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+          'hex'
+        );
+
+        var res = await collFn().upsert(testKeyBinVal, valueBytes);
+        assert.isObject(res);
+        assert.isNotEmpty(res.cas);
+
+        var gres = await collFn().get(testKeyBinVal);
+        assert.isTrue(Buffer.isBuffer(gres.value));
+        assert.deepStrictEqual(gres.value, valueBytes);
       });
     });
   });
@@ -357,8 +393,7 @@ function genericTests(collFn) {
       });
 
       // Ensure we can upsert with the cas
-      await collFn().upsert(
-        testKeyLck, { foo: 9 }, { cas: prevCas });
+      await collFn().replace(testKeyLck, { foo: 9 }, { cas: prevCas });
     });
 
     it('should unlock successfully', async () => {
@@ -367,9 +402,9 @@ function genericTests(collFn) {
       var prevCas = res.cas;
 
       // Manually unlock the key
-      var res = await collFn().unlock(testKeyLck, prevCas);
-      assert.isObject(res);
-      assert.isNotEmpty(res.cas);
+      var ures = await collFn().unlock(testKeyLck, prevCas);
+      assert.isObject(ures);
+      assert.isNotEmpty(ures.cas);
 
       // Make sure our get works now
       await collFn().upsert(testKeyLck, { foo: 14 });
@@ -383,7 +418,7 @@ function genericTests(collFn) {
       await collFn().insert(testKeySd, {
         foo: 14,
         bar: 2,
-        baz: 'hello'
+        baz: 'hello',
       });
     });
 
@@ -399,26 +434,35 @@ function genericTests(collFn) {
       ]);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
-      assert.isArray(res.results);
-      assert.strictEqual(res.results.length, 3);
-      assert.isNotOk(res.results[0].error);
-      assert.deepStrictEqual(res.results[0].value, 'hello');
-      assert.isNotOk(res.results[1].error);
-      assert.deepStrictEqual(res.results[1].value, 2);
-      assert.isNotOk(res.results[2].error);
-      assert.deepStrictEqual(res.results[2].value, false);
+      assert.isArray(res.content);
+      assert.strictEqual(res.content.length, 3);
+      assert.isNotOk(res.content[0].error);
+      assert.deepStrictEqual(res.content[0].value, 'hello');
+      assert.isNotOk(res.content[1].error);
+      assert.deepStrictEqual(res.content[1].value, 2);
+      assert.isNotOk(res.content[2].error);
+      assert.deepStrictEqual(res.content[2].value, false);
+
+      // BUG JSCBC-730: Check to make sure that the results property
+      // returns the same as the content property.
+      assert.strictEqual(res.results, res.content);
     });
 
     it('should mutateIn successfully', async () => {
       var res = await collFn().mutateIn(testKeySd, [
-        H.lib.MutateInSpec.increment('bar', 3)
+        H.lib.MutateInSpec.increment('bar', 3),
+        H.lib.MutateInSpec.upsert('baz', 'world'),
       ]);
       assert.isObject(res);
       assert.isNotEmpty(res.cas);
 
+      assert.isUndefined(res.content[0].error);
+      assert.strictEqual(res.content[0].value, 5);
+
       var gres = await collFn().get(testKeySd);
       assert.isOk(gres.value);
-      assert.deepStrictEqual(gres.value.bar, 5);
+      assert.strictEqual(gres.value.bar, 5);
+      assert.strictEqual(gres.value.baz, 'world');
     });
   });
 }

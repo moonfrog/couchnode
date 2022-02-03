@@ -20,6 +20,7 @@
 #include "mc/mcreq.h"
 #include "mc/compress.h"
 #include "trace.h"
+#include "collections.h"
 
 #define LOGARGS(obj, lvl) (obj)->settings, "handler", LCB_LOG_##lvl, __FILE__, __LINE__
 
@@ -111,8 +112,7 @@ lcb_errmap_default(lcb_INSTANCE *instance, lcb_uint16_t in)
     }
 }
 
-static lcb_STATUS
-map_error(lcb_INSTANCE *instance, int in)
+lcb_STATUS lcb_map_error(lcb_INSTANCE *instance, int in)
 {
     switch (in) {
     case PROTOCOL_BINARY_RESPONSE_SUCCESS:
@@ -257,7 +257,7 @@ void make_error(lcb_INSTANCE *instance, T* resp,
     } else if (response->status() == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
         resp->ctx.rc = LCB_SUCCESS;
     } else {
-        resp->ctx.rc = map_error(instance, response->status());
+        resp->ctx.rc = lcb_map_error(instance, response->status());
     }
 }
 
@@ -306,7 +306,7 @@ void init_resp(lcb_INSTANCE *instance, mc_PIPELINE *pipeline, const MemcachedRes
         ptr += strlen(remote->port);
         *ptr = '\0';
         ptr++;
-        resp->ctx.endpoint_len = ptr - resp->ctx.endpoint;
+        resp->ctx.endpoint_len = ptr - resp->ctx.endpoint - 1;
     }
 }
 
@@ -356,6 +356,16 @@ template <typename T>
 void invoke_callback(const mc_PACKET *pkt,
     lcb_INSTANCE *instance, T* resp, lcb_CALLBACK_TYPE cbtype)
 {
+    std::string collection_path = instance->collcache->id_to_name(mcreq_get_cid(instance, pkt));
+    if (!collection_path.empty()) {
+        size_t dot = collection_path.find('.');
+        if (dot != std::string::npos) {
+            resp->ctx.scope = collection_path.c_str();
+            resp->ctx.scope_len = dot;
+            resp->ctx.collection = collection_path.c_str() + dot + 1;
+            resp->ctx.collection_len = collection_path.size() - (dot + 1);
+        }
+    }
     if (!(pkt->flags & MCREQ_F_INVOKED)) {
         resp->cookie = const_cast<void*>(MCREQ_PKT_COOKIE(pkt));
         const lcb_RESPBASE *base = reinterpret_cast<const lcb_RESPBASE*>(resp);
@@ -466,9 +476,9 @@ static void H_exists(mc_PIPELINE *pipeline, mc_PACKET *request, MemcachedRespons
             resp.seqno = lcb_ntohll(resp.seqno);
         }
     }
-    invoke_callback(request, root, &resp, LCB_CALLBACK_EXISTS);
     LCBTRACE_KV_FINISH(pipeline, request, resp, response);
     TRACE_EXISTS_END(root, request, response, &resp);
+    invoke_callback(request, root, &resp, LCB_CALLBACK_EXISTS);
 }
 
 static void
@@ -599,7 +609,7 @@ sdlookup_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     rc = ntohs(rc);
     vlen = ntohl(vlen);
 
-    ent->status = map_error(NULL, rc);
+    ent->status = lcb_map_error(NULL, rc);
     ent->nvalue = vlen;
 
     if (ent->status == LCB_SUCCESS) {
@@ -641,7 +651,7 @@ sdmutate_next(const MemcachedResponse *response, lcb_SDENTRY *ent, size_t *iter)
     ADVANCE_BUF(2);
 
     rc = ntohs(rc);
-    ent->status = map_error(NULL, rc);
+    ent->status = lcb_map_error(NULL, rc);
 
     if (rc == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
         memcpy(&vlen, buf, 4);
@@ -690,7 +700,7 @@ lcb_sdresult_next(const lcb_RESPSUBDOC *resp, lcb_SDENTRY *ent, size_t *iter)
         }
         *iter = 1;
 
-        ent->status = map_error(NULL, response->status());
+        ent->status = lcb_map_error(NULL, response->status());
         ent->value = response->value();
         ent->nvalue = response->vallen();
         ent->index = 0;
@@ -956,6 +966,15 @@ H_collections_get_cid(mc_PIPELINE *pipeline, mc_PACKET *request,
     }
 
     if (request->flags & MCREQ_F_REQEXT) {
+        if (resp.ctx.key && resp.ctx.key_len) {
+            const char *dot = strchr(resp.ctx.key, '.');
+            if (dot) {
+                resp.ctx.scope = resp.ctx.key;
+                resp.ctx.scope_len = dot - resp.ctx.key;
+                resp.ctx.collection = dot + 1;
+                resp.ctx.collection_len = resp.ctx.key_len - (dot - resp.ctx.key + 1);
+            }
+        }
         request->u_rdata.exdata->procs->handler(pipeline, request, resp.ctx.rc, &resp);
     } else {
         invoke_callback(request, root, &resp, LCB_CALLBACK_GETCID);

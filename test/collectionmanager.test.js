@@ -1,8 +1,5 @@
 'use strict';
 
-const assert = require('chai').assert
-const testdata = require('./testdata');
-
 const H = require('./harness');
 
 describe('#collectionmanager', () => {
@@ -70,8 +67,6 @@ describe('#collectionmanager', () => {
       await H.throwsHelper(async () => {
         await cmgr.dropScope(testScope);
       }, H.lib.ScopeNotFoundError);
-
     });
-
   });
 });

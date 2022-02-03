@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert
+const assert = require('chai').assert;
 const testdata = require('./testdata');
 
 const H = require('./harness');
@@ -21,14 +21,14 @@ describe('#query', () => {
 
     it('should successfully create a primary index', async () => {
       await H.c.queryIndexes().createPrimaryIndex(H.b.name, {
-        name: idxName
+        name: idxName,
       });
     }).timeout(60000);
 
     it('should fail to create a duplicate primary index', async () => {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().createPrimaryIndex(H.b.name, {
-          name: idxName
+          name: idxName,
         });
       }, H.lib.IndexExistsError);
     });
@@ -49,13 +49,13 @@ describe('#query', () => {
     });
 
     it('should see test data correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
-          var qs = 'SELECT * FROM ' + H.b.name +
-            ' WHERE testUid="' + testUid + '"';
+          var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`;
           res = await H.c.query(qs);
-        } catch (e) {}
+        } catch (e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -71,13 +71,41 @@ describe('#query', () => {
     }).timeout(10000);
 
     it('should work with parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
-          var qs = 'SELECT * FROM ' + H.b.name +
-            ' WHERE testUid=$1';
-          res = await H.c.query(qs, { parameters: [testUid] });
-        } catch (e) {}
+          var qs = `SELECT * FROM ${H.b.name} WHERE testUid=$1`;
+          res = await H.c.query(qs, {
+            parameters: [testUid],
+          });
+        } catch (e) {} // eslint-disable-line no-empty
+
+        if (res.rows.length !== testdata.docCount()) {
+          await H.sleep(100);
+          continue;
+        }
+
+        assert.isArray(res.rows);
+        assert.lengthOf(res.rows, testdata.docCount());
+        assert.isObject(res.meta);
+
+        break;
+      }
+    }).timeout(10000);
+
+    it('should work with named parameters correctly', async () => {
+      /* eslint-disable-next-line no-constant-condition */
+      while (true) {
+        var res = null;
+        try {
+          var qs = `SELECT * FROM ${H.b.name} WHERE testUid=$tuid`;
+          res = await H.c.query(qs, {
+            parameters: {
+              tuid: testUid,
+            },
+          });
+        } catch (e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -93,11 +121,12 @@ describe('#query', () => {
     }).timeout(10000);
 
     it('should work with lots of options specified', async () => {
+      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null;
         try {
-          var qs = 'SELECT * FROM ' + H.b.name +
-            ' WHERE testUid="' + testUid + '"';
+          var qs =
+            'SELECT * FROM ' + H.b.name + ' WHERE testUid="' + testUid + '"';
           res = await H.c.query(qs, {
             adhoc: true,
             clientContextId: 'hello-world',
@@ -109,7 +138,7 @@ describe('#query', () => {
             profile: H.lib.QueryProfileMode.Timings,
             metrics: true,
           });
-        } catch (e) {}
+        } catch (e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100);
@@ -131,12 +160,16 @@ describe('#query', () => {
     }).timeout(10000);
 
     it('should wait till all indexes are online', async () => {
-      await H.c.queryIndexes().watchIndexes(H.b.name, [idxName, sidxName], 2000);
+      await H.c
+        .queryIndexes()
+        .watchIndexes(H.b.name, [idxName, sidxName], 2000);
     }).timeout(3000);
 
     it('should fail watching when some indexes are missing', async () => {
       await H.throwsHelper(async () => {
-        await H.c.queryIndexes().watchIndexes(H.b.name, ['invalid-index'], 2000);
+        await H.c
+          .queryIndexes()
+          .watchIndexes(H.b.name, ['invalid-index'], 2000);
       }, H.lib.CouchbaseError);
     }).timeout(3000);
 
@@ -152,14 +185,14 @@ describe('#query', () => {
 
     it('should successfully drop a primary index', async () => {
       await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
-        name: idxName
+        name: idxName,
       });
     });
 
     it('should fail to drop a missing primary index', async () => {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
-          name: idxName
+          name: idxName,
         });
       }, H.lib.QueryIndexNotFoundError);
     });

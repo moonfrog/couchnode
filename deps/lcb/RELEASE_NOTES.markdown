@@ -1,5 +1,37 @@
 # Release Notes
 
+## 3.0.2 (2020-06-10)
+
+* CCBC-1200: Retry bootstrap on missing bucket until timeout. Bootstrap timeout controlled by "`config_total_timeout`" in connection string or `LCB_CNTL_CONFIGURATION_TIMEOUT`
+* CCBC-1190: Fix automatic retries for temporary failures from the server.
+* CCBC-1158: Fix retrying on unknown collection.
+* CCBC-1254: Use separate option for default timeout of analytics queries (connection string `"analytics_timeout"`).
+* CCBC-1178: Do not allow to set CAS for upsert and insert operations
+* CCBC-1156: Fix enum value for analytics type of HTTP request
+* CCBC-1251: No longer log error when using GCCCP on pre-6.5
+* CCBC-1234: Fixed SRV resolution to work with large record sizes.
+* CCBC-1222: Tracing thresholds for query and search in connection strings. Now they are correctly spelled as `tracing_threshold_search` and `tracing_threshold_query`.
+* CCBC-1187: Ensure `lcb_respexists_is_found` does not true for deleted documents.
+* CCBC-1233: Updated RTO to independently specify `operation_name`.
+* CCBC-1205: Do not include trailing zero for endpoint length for KV context
+* CCBC-1215: Fixed segfault in exists calls.
+* CCBC-1218: Fixed intermittent segfault in client durable store
+* Documentation issues addressed (CCBC-1240, CCBC-1243, CCBC-1241, CCBC-1245)
+
+## 3.0.1 (2020-04-07)
+
+* CCBC-1188: cbc-pillowfight: fixed `--collection` switch.
+* CCBC-1173: Fix exporting `lcb_cmdquery_consistency_token_for_keyspace`
+* CCBC-1168: expose `max_parallelism` for query
+* CCBC-1171: expose `profile` option for query
+* CCBC-1170: expose `scan_wait` option for query
+* CCBC-1159: Fix error codes for Management API
+* MB-37768: Don't override `CMAKE_INSTALL_RPATH`.
+* CCBC-1208: Add a fail-fast retry strategy.
+* CCBC-1209: Rename functions of embedded `http_parser` to avoid name clash.
+* Remove use of deprecated function `std::random_shuffle`. `std::random_shuffle` is deprecated in C++14, removed in C++17. Replace with `std::shuffle`.
+* Fixed several issues reported by coverity
+
 ## 3.0.0 (2020-01-17)
 
 * CCBC-1152: Enable `SCRAM-SHA*` SASL by default.
